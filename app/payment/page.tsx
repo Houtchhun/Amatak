@@ -42,6 +42,7 @@ export default function PaymentPage() {
 	const [sameAsShipping, setSameAsShipping] = useState(true)
 	const [processing, setProcessing] = useState(false)
 	const [cartItems, setCartItems] = useState<CartItem[]>([])
+	const [searchQuery, setSearchQuery] = useState("");
 
 	useEffect(() => {
 		if (typeof window !== "undefined") {
@@ -96,7 +97,7 @@ export default function PaymentPage() {
 
 	return (
 		<div className="min-h-screen bg-gray-50">
-			<Header />
+			<Header searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
 			<main className="container mx-auto px-4 py-8">
 				{/* Breadcrumb */}
