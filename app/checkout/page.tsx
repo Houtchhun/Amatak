@@ -35,7 +35,6 @@ interface Product {
 }
 
 // Remove the static cartItems array and load from localStorage
-// const cartItems = [ ... ] // REMOVE THIS
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -74,7 +73,7 @@ export default function CheckoutPage() {
   }, [user])
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shipping = shippingMethod === "express" ? 15.99 : shippingMethod === "overnight" ? 29.99 : 5.99
+  const shipping = shippingMethod === "delivery" ? 2 : shippingMethod === "overnight" ? 1.25 : 1.5
   const tax = subtotal * 0.08 // 8% tax
   const total = subtotal + shipping + tax
 
@@ -314,7 +313,7 @@ export default function CheckoutPage() {
                       {[
                         { id: "standard", name: "Standard Shipping(Province)", time: "2 business days", price: 1.50},
                         { id: "overnight", name: "Overnight Shipping(Phnom Penh)", time: "1 business days", price: 1.25 },
-                        { id: "Delivery", name: "Delivery(Phnom Penh)", time: "Delivery after confirmation", price: 2.00 },
+                        { id: "delivery", name: "Delivery(Phnom Penh)", time: "Delivery after confirmation", price: 2.00 },
                       ].map((method) => (
                         <label
                           key={method.id}
