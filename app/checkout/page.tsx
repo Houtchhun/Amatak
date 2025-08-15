@@ -61,6 +61,10 @@ export default function CheckoutPage() {
   })
   const [shippingMethod, setShippingMethod] = useState("standard")
   const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [promoInput, setPromoInput] = useState("");
+  const [promoError, setPromoError] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
 
   // Load cart from localStorage on mount and pre-fill phone if user is logged in
   useEffect(() => {
@@ -72,10 +76,18 @@ export default function CheckoutPage() {
     }
   }, [user])
 
+  // Load promo codes from localStorage
+  const getPromoCodes = () => {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem("promoCodes") || "[]");
+    }
+    return [];
+  };
+
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const shipping = shippingMethod === "delivery" ? 2 : shippingMethod === "overnight" ? 1.25 : 1.5
   const tax = subtotal * 0.08 // 8% tax
-  const total = subtotal + shipping + tax
+  const total = subtotal + shipping + tax - discountAmount;
 
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,6 +117,8 @@ export default function CheckoutPage() {
           total,
           userId: user?.email, // Add userId for filtering orders
           paymentStatus: "Paid", // New: Add payment status
+          promoCode: appliedPromo ? appliedPromo.code : null,
+          promoDiscount: discountAmount,
         }
         // Save the new order to the main orders list for history
         const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
@@ -158,6 +172,58 @@ export default function CheckoutPage() {
       [name]: value,
     }))
   }
+
+  // Promo code apply handler
+  const handleApplyPromo = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPromoError("");
+    const codes = getPromoCodes();
+    const code = codes.find((p: any) => p.code === promoInput.toUpperCase());
+    if (!code) {
+      setPromoError("Promo code not found.");
+      setAppliedPromo(null);
+      setDiscountAmount(0);
+      return;
+    }
+    if (!code.active) {
+      setPromoError("Promo code is not active.");
+      setAppliedPromo(null);
+      setDiscountAmount(0);
+      return;
+    }
+    if (code.used >= code.usageLimit) {
+      setPromoError("Promo code usage limit reached.");
+      setAppliedPromo(null);
+      setDiscountAmount(0);
+      return;
+    }
+    // Calculate potential discount
+    const discount = Math.min((subtotal * code.discount) / 100, code.maxBudget - (code.totalDiscountGiven || 0));
+    if (discount <= 0) {
+      setPromoError("Promo code budget exhausted.");
+      setAppliedPromo(null);
+      setDiscountAmount(0);
+      return;
+    }
+    setAppliedPromo(code);
+    setDiscountAmount(discount);
+  };
+
+  // Update promo code usage and budget after order placed
+  const updatePromoUsage = () => {
+    if (!appliedPromo) return;
+    const codes = getPromoCodes();
+    const idx = codes.findIndex((p: any) => p.code === appliedPromo.code);
+    if (idx > -1) {
+      codes[idx].used = (codes[idx].used || 0) + 1;
+      codes[idx].totalDiscountGiven = (codes[idx].totalDiscountGiven || 0) + discountAmount;
+      // Deactivate if limits reached
+      if (codes[idx].used >= codes[idx].usageLimit || codes[idx].totalDiscountGiven >= codes[idx].maxBudget) {
+        codes[idx].active = false;
+      }
+      localStorage.setItem("promoCodes", JSON.stringify(codes));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -494,6 +560,29 @@ export default function CheckoutPage() {
             <div className="bg-white rounded-2xl p-6 shadow-md sticky top-24">
               <h3 className="text-xl font-bold mb-4">Order Summary</h3>
 
+              {/* Promo Code Input */}
+              <form onSubmit={handleApplyPromo} className="mb-4 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Promo code"
+                  value={promoInput}
+                  onChange={e => setPromoInput(e.target.value)}
+                  className="flex-1 border rounded px-3 py-2"
+                  disabled={!!appliedPromo}
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700"
+                  disabled={!!appliedPromo}
+                >
+                  Apply
+                </button>
+              </form>
+              {promoError && <div className="text-red-500 text-sm mb-2">{promoError}</div>}
+              {appliedPromo && (
+                <div className="text-green-600 text-sm mb-2">Promo code <b>{appliedPromo.code}</b> applied: -${discountAmount.toFixed(2)}</div>
+              )}
+
               {/* Cart Items */}
               <div className="space-y-4 mb-6">
                 {cartItems.length === 0 ? (
@@ -536,6 +625,12 @@ export default function CheckoutPage() {
                   <span>Tax</span>
                   <span>${tax.toFixed(2)}</span>
                 </div>
+                {appliedPromo && (
+                  <div className="flex justify-between text-green-700">
+                    <span>Promo ({appliedPromo.code})</span>
+                    <span>- ${discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-lg border-t pt-2">
                   <span>Total</span>
                   <span>${total.toFixed(2)}</span>

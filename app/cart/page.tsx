@@ -69,8 +69,8 @@ export default function CartPage() {
 		}
 		return sum
 	}, 0)
-	const shipping = subtotal > 100 ? 0 : 9.99
-	const tax = subtotal * 0.08
+	const shipping = subtotal > 100 ? 0 : 2
+	const tax = subtotal * 0.05
 	const total = subtotal + shipping + tax
 
 	if (cartItems.length === 0) {
@@ -213,11 +213,6 @@ export default function CartPage() {
 									</div>
 								</div>
 							</div>
-							{shipping > 0 && (
-								<div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
-									<p className="text-sm text-blue-800">Add ${(100 - subtotal).toFixed(2)} more for free shipping!</p>
-								</div>
-							)}
 							<Link
 								href="/checkout"
 								className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-center block"
@@ -231,11 +226,11 @@ export default function CartPage() {
 								</div>
 								<div className="flex items-center text-sm text-gray-600">
 									<span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-									<span>Free returns within 30 days</span>
+									<span>Free returns within 7 days</span>
 								</div>
 								<div className="flex items-center text-sm text-gray-600">
 									<span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-									<span>2-year warranty included</span>
+									<span>15 days warranty included</span>
 								</div>
 							</div>
 						</div>

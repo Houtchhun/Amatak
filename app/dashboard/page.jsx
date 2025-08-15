@@ -15,21 +15,53 @@
      return ORDER_STATUSES.indexOf(status);
    }
 
+   // Promo code type (for reference only)
+   // {
+   //   code: string,
+   //   discount: number,
+   //   maxBudget: number,
+   //   usageLimit: number,
+   //   used: number,
+   //   active: boolean
+   // }
+
    export default function DashboardPage() {
      const router = useRouter();
      const { isAuthenticated, user, isLoading: authLoading } = useAuth();
      const [isAdmin, setIsAdmin] = useState(false);
      const [isLoading, setIsLoading] = useState(true);
      const [searchQuery, setSearchQuery] = useState("");
-     const [orders, setOrders] = useState([]);
-     const [selectedOrder, setSelectedOrder] = useState(null);
-  
-     // State for dashboard metrics
      const [totalUsers, setTotalUsers] = useState(0);
      const [totalProducts, setTotalProducts] = useState(0);
      const [totalOrders, setTotalOrders] = useState(0);
      const [totalRevenue, setTotalRevenue] = useState(0);
+     const [orders, setOrders] = useState(() => {
+      if (typeof window !== "undefined") {
+        return JSON.parse(localStorage.getItem("orders") || "[]");
+      }
+      return [];
+    });
+     const [selectedOrder, setSelectedOrder] = useState(null);
+     const [promoCodes, setPromoCodes] = useState(() => {
+      if (typeof window !== "undefined") {
+        return JSON.parse(localStorage.getItem("promoCodes") || "[]");
+      }
+      return [];
+    });
+     const [newPromo, setNewPromo] = useState({
+      code: "",
+      discount: 0,
+      maxBudget: 0,
+      usageLimit: 0,
+    });
   
+     // Save promo codes to localStorage when changed
+     useEffect(() => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("promoCodes", JSON.stringify(promoCodes));
+      }
+    }, [promoCodes]);
+
      useEffect(() => {
        if (authLoading) {
          // Still loading authentication state, do nothing yet
@@ -65,6 +97,36 @@
        setIsLoading(false);
      }, [authLoading, isAuthenticated, user, router]);
 
+     // Add new promo code
+     const handleAddPromo = (e) => {
+      e.preventDefault();
+      if (!newPromo.code || newPromo.discount <= 0 || newPromo.maxBudget <= 0 || newPromo.usageLimit <= 0) {
+        alert("Please fill all promo fields with valid values.");
+        return;
+      }
+      if (promoCodes.some(p => p.code === newPromo.code)) {
+        alert("Promo code already exists.");
+        return;
+      }
+      setPromoCodes([
+        ...promoCodes,
+        {
+          ...newPromo,
+          discount: Number(newPromo.discount),
+          maxBudget: Number(newPromo.maxBudget),
+          usageLimit: Number(newPromo.usageLimit),
+          used: 0,
+          active: true,
+        },
+      ]);
+      setNewPromo({ code: "", discount: 0, maxBudget: 0, usageLimit: 0 });
+    };
+
+    // Toggle promo code active status
+    const handleTogglePromo = (code) => {
+      setPromoCodes(promoCodes.map(p => p.code === code ? { ...p, active: !p.active } : p));
+    };
+  
      // Show a loading message while we verify the user's role
      if (isLoading || authLoading) {
        return (
@@ -73,7 +135,6 @@
          </div>
        );
      }
-  
      // Don't render anything if the user is not an admin (while redirecting)
      if (!isAdmin) {
        return null;
@@ -117,7 +178,6 @@
          <Header searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
          <main className="container mx-auto px-4 py-10 flex-1">
            <h1 className="text-3xl font-bold mb-8 text-gray-800">Admin Dashboard</h1>
-  
            {/* Metrics Grid */}
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
              <DashboardCard
@@ -149,6 +209,29 @@
             <div className="bg-white rounded-2xl shadow p-8 text-center mb-12">
              <h2 className="text-xl font-bold text-gray-700">More Analytics Coming Soon</h2>
              <p className="text-gray-500 mt-2">This area will feature charts and recent activity.</p>
+           </div>
+
+           {/* Promo Code Management */}
+           <p className="mb-2 text-sm text-gray-600">Each promo code has a usage limit and a total discount budget. When either is reached, the code becomes unusable. You can toggle codes active/inactive as needed.</p>
+           <div className="mb-2 text-xs text-gray-500">
+          <strong>Legend:</strong> <br />
+          <span className="inline-block w-32">Code</span> - The promo code string<br />
+          <span className="inline-block w-32">Discount (%)</span> - Discount percent applied<br />
+          <span className="inline-block w-32">Max Budget</span> - Total discount budget (currency)<br />
+          <span className="inline-block w-32">Usage Limit</span> - Max times code can be used<br />
+          <span className="inline-block w-32">Used</span> - Number of times code has been used<br />
+          <span className="inline-block w-32">Active</span> - Whether the code is currently usable
+        </div>
+           <div className="bg-white rounded-2xl shadow p-8 mb-12">
+             <h2 className="text-xl font-bold text-gray-700 mb-6">Promo Code Management</h2>
+             <form onSubmit={handleAddPromo} className="flex flex-wrap gap-4 items-end mb-6">
+               <input type="text" placeholder="Code" value={newPromo.code} onChange={e => setNewPromo({ ...newPromo, code: e.target.value.toUpperCase() })} className="border rounded px-3 py-2" required />
+               <input type="number" placeholder="Discount %" value={newPromo.discount} onChange={e => setNewPromo({ ...newPromo, discount: Number(e.target.value) })} className="border rounded px-3 py-2 w-32" required min={1} max={100} />
+               <input type="number" placeholder="Max Budget" value={newPromo.maxBudget} onChange={e => setNewPromo({ ...newPromo, maxBudget: Number(e.target.value) })} className="border rounded px-3 py-2 w-32" required min={1} />
+               <input type="number" placeholder="Usage Limit" value={newPromo.usageLimit} onChange={e => setNewPromo({ ...newPromo, usageLimit: Number(e.target.value) })} className="border rounded px-3 py-2 w-32" required min={1} />
+               <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700">Add Promo</button>
+             </form>
+             <PromoCodeTable promoCodes={promoCodes} onToggle={handleTogglePromo} />
            </div>
 
            {/* Order Management Table */}
@@ -294,6 +377,45 @@
               </ul>
             </div>
           </div>
+        </div>
+      );
+    }
+
+    // Promo Code Table Component
+    function PromoCodeTable({ promoCodes, onToggle }) {
+      if (!promoCodes || promoCodes.length === 0) {
+        return <div className="text-gray-500">No promo codes found.</div>;
+      }
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Discount (%)</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Max Budget</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Usage Limit</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Used</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
+                <th className="px-4 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {promoCodes.map(promo => (
+                <tr key={promo.code}>
+                  <td className="px-4 py-2 font-mono text-sm">{promo.code}</td>
+                  <td className="px-4 py-2">{promo.discount}%</td>
+                  <td className="px-4 py-2">${promo.maxBudget}</td>
+                  <td className="px-4 py-2">{promo.usageLimit}</td>
+                  <td className="px-4 py-2">{promo.used}</td>
+                  <td className="px-4 py-2">
+                    <button onClick={() => onToggle(promo.code)} className={`px-2 py-1 rounded ${promo.active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-500"}`}>{promo.active ? "Active" : "Inactive"}</button>
+                  </td>
+                  <td className="px-4 py-2"></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       );
     }

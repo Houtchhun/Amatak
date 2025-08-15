@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/AuthContext"
+import { auth, provider, signInWithPopup } from "@/firebase"
 
 interface User {
 	id: string;
@@ -13,6 +14,7 @@ interface User {
 	password: string;
 	role: string;
 	createdAt: string;
+	photoURL?: string;
 }
 
 export default function RegisterPage() {
@@ -26,6 +28,7 @@ export default function RegisterPage() {
 		confirmPassword: ""
 	});
 	const [isRegistering, setIsRegistering] = useState(false);
+	const [googlePhoto, setGooglePhoto] = useState<string | null>(null);
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
@@ -66,13 +69,55 @@ export default function RegisterPage() {
 		router.push("/");
 	};
 
+	// Google Sign-In handler
+	const handleGoogleRegister = async () => {
+		try {
+			const result = await signInWithPopup(auth, provider);
+			const profile = result.user;
+			if (!profile || !profile.email) {
+				alert("Google sign-in failed.");
+				return;
+			}
+			setGooglePhoto(profile.photoURL || null);
+			const users: User[] = JSON.parse(localStorage.getItem("users") || "[]");
+			let user = users.find((u: User) => u.email === profile.email);
+			if (!user) {
+				user = {
+					id: `user-${Date.now()}`,
+					name: profile.displayName || profile.email,
+					email: profile.email,
+					phone: profile.phoneNumber || "",
+					password: "google-oauth",
+					role: "customer",
+					createdAt: new Date().toISOString(),
+					photoURL: profile.photoURL || "",
+				};
+				localStorage.setItem("users", JSON.stringify([...users, user]));
+			}
+			login(user.email, user.role);
+			router.push("/");
+		} catch (error) {
+			alert("Google sign-in failed.");
+		}
+	};
+
 	return (
 		<div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
 			<div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg transition-all">
 				<div className="text-center mb-8">
 					<h1 className="text-3xl font-bold text-gray-900">Create an Account</h1>
 					<p className="mt-2 text-gray-600">Sign up to get started</p>
+					{googlePhoto && (
+						<img src={googlePhoto} alt="Google profile" className="mx-auto rounded-full w-20 h-20 mt-4" />
+					)}
 				</div>
+				<button
+					onClick={handleGoogleRegister}
+					className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white py-3 mb-4 text-gray-700 font-semibold shadow hover:bg-gray-50"
+				>
+					<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+					Sign up with Google
+				</button>
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div>
 						<label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
